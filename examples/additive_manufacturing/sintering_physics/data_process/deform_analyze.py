@@ -31,11 +31,8 @@ from utils import get_solution_id, read_configs
 
 def plot_temperature_curve(temp_curve_list):
     """Read from the list of sintering time-temp, visualize the sintering profile"""
-    t_list = []
-    temp_list = []
-    for idx in range(len(temp_curve_list) // 2):
-        t_list.append(int(temp_curve_list[idx * 2]))
-        temp_list.append(int(temp_curve_list[idx * 2 + 1]))
+    t_list = [int(temp_curve_list[i]) for i in range(0, len(temp_curve_list), 2)]
+    temp_list = [int(temp_curve_list[i]) for i in range(1, len(temp_curve_list), 2)]
 
     print("time list: ", t_list)
     print("temp_list : ", temp_list)
@@ -43,7 +40,7 @@ def plot_temperature_curve(temp_curve_list):
     fig = plt.figure(figsize=(10, 6))
     plt.plot(t_list, temp_list, color="blue", marker=".")
     fig.savefig("temperature_profile.png", format="png", dpi=100, bbox_inches="tight")
-
+    plt.close(fig)
     return t_list, temp_list
 
 
@@ -62,14 +59,10 @@ def read_sol_time(series_file):
     Returns:
 
     """
-    dict_sol_time = {}
-    time_list = []
     with open(series_file, "r") as fobj:
         data = json.load(fobj)
 
-    for idx, item in enumerate(data["files"]):
-        time_list.append(item["time"])
-        dict_sol_time[item["name"]] = [item["time"]]
+    dict_sol_time = {item["name"]: [item["time"]] for item in data["files"]}
 
     return dict_sol_time
 
@@ -177,7 +170,7 @@ def read_solutions_data_temp_anchor(
 
     # todo: sample point id, move to input variable
     read_point_id = 8000
-    for solution_idx, solution_path in enumerate(solution_list):
+    for solution_path in solution_list:
         # For each solution-*.pvtu file, get the solution-id, read data points
         # filter out the repeated data
         solution_id = get_solution_id(solution_path)
@@ -185,7 +178,7 @@ def read_solutions_data_temp_anchor(
             solution_path, dict_sol_time, temp_curve_list
         )
 
-        if solution_temp >= start_temp and solution_temp < end_temp:
+        if start_temp <= solution_temp < end_temp::
             key_list.append(solution_id)
             temp_list.append(solution_temp)
 
