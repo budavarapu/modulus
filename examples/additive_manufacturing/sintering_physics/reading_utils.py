@@ -60,9 +60,7 @@ def convert_to_tensor(x, encoded_dtype):
     if len(x) == 1:
         out = np.frombuffer(x[0].numpy(), dtype=encoded_dtype)
     else:
-        out = []
-        for el in x:
-            out.append(np.frombuffer(el.numpy(), dtype=encoded_dtype))
+        out = np.array([np.frombuffer(el.numpy(), dtype=encoded_dtype) for el in x])
     out = tf.convert_to_tensor(np.array(out))
     return out
 
@@ -122,27 +120,13 @@ def parse_serialized_simulation_example(example_proto, metadata):
 
     # Decode particle type explicitly
     print("decode particle_type")
-    context["particle_type"] = tf.py_function(
-        functools.partial(convert_fn, encoded_dtype=np.int64),
-        inp=[context["particle_type"].values],
-        Tout=[tf.int64],
-    )
-    context["particle_type"] = tf.reshape(context["particle_type"], [-1])
-
-    context["senders"] = tf.py_function(
-        functools.partial(convert_fn, encoded_dtype=np.int64),
-        inp=[context["senders"].values],
-        Tout=[tf.int64],
-    )
-    context["senders"] = tf.reshape(context["senders"], [-1])
-
-    context["receivers"] = tf.py_function(
-        functools.partial(convert_fn, encoded_dtype=np.int64),
-        inp=[context["receivers"].values],
-        Tout=[tf.int64],
-    )
-    context["receivers"] = tf.reshape(context["receivers"], [-1])
-
+    for key in ["particle_type", "senders", "receivers"]:
+        context[key] = tf.py_function(
+            functools.partial(convert_fn, encoded_dtype=np.int64),
+            inp=[context[key].values],
+            Tout=[tf.int64],
+        )
+        context[key] = tf.reshape(context[key], [-1])
     return context, parsed_features
 
 
@@ -161,18 +145,12 @@ def split_trajectory(context, features, window_length=7, predict_length=10):
     model_input_features = {}
     # Prepare the context features per step.
     # Repeat the particle types for each window step
-    model_input_features["particle_type"] = tf.tile(
-        tf.expand_dims(context["particle_type"], axis=0), [input_trajectory_length, 1]
-    )
 
-    model_input_features["senders"] = tf.tile(
-        tf.expand_dims(context["senders"], axis=0), [input_trajectory_length, 1]
-    )
-
-    model_input_features["receivers"] = tf.tile(
-        tf.expand_dims(context["receivers"], axis=0), [input_trajectory_length, 1]
-    )
-
+    for key in ["particle_type", "senders", "receivers"]:
+        model_input_features[key] = tf.tile(
+            tf.expand_dims(context[key], axis=0), [input_trajectory_length, 1]
+        )
+    
     # todo: change the hard-coded trajectory length to be the entire global context (/ sintering profile) sequence length
     # sequence length here is the default sintering 2-stage total length
     # trajectory_length = 14 + 24
